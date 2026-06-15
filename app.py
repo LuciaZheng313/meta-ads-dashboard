@@ -1,10 +1,18 @@
 """
 Meta Ads 多地区看板 (EMEA / India / North America ...)
 运行方式: streamlit run app.py
-依赖: pip install streamlit pandas plotly openpyxl numpy --break-system-packages
+依赖: pip install streamlit pandas plotly openpyxl python-calamine numpy --break-system-packages
 
 新增：支持上传销售线索 SQL 导出文件，并按 Region + Campaign / Ad set 计算 SQL / MQL 转化。
 SQL 文件建议命名：SQL_销售线索_YYYYMMDD.xlsx，例如 SQL_销售线索_20260612.xlsx
+
+新增 (NA 看板兼容)：
+- 部分新导出的 Excel 文件 (例如 NA 看板) 的内部样式信息有损坏, openpyxl 会在打开时报错
+  (TypeError: expected <class 'openpyxl.styles.fills.Fill'>)。代码会自动尝试 openpyxl,
+  失败时回退到 calamine 引擎 (pip install python-calamine)。
+- "Daily Total" / "Daily total" 等大小写写法都会被识别为汇总 sheet。
+- 新增 "Single Image" / "Carousel" 等 ad set sheet 会被自动识别为 campaign 明细 sheet
+  (只要包含 Date / Spend 列), 并补充了对应的销售线索别名规则。
 """
 
 import re
@@ -23,8 +31,10 @@ st.set_page_config(page_title="Meta Ads 多地区看板", layout="wide")
 # 配置: 各 campaign sheet 名称 + 统一字段
 # ---------------------------------------------------------------------------
 # 现有看板常用 sheet。为了兼容后续 NA 看板，代码会额外自动读取其他包含 Date/Spend 的 sheet。
-PREFERRED_CAMPAIGN_SHEETS = ["Manufacture", "CA", "AI Instant", "AI Layout"]
+PREFERRED_CAMPAIGN_SHEETS = ["Manufacture", "CA", "AI Instant", "AI Layout", "Single Image", "Carousel"]
 DAILY_TOTAL_SHEET = "Daily total"
+# NA 看板等文件里 sheet 名写作 "Daily Total" (大写 T)，统一用下面的候选列表做大小写无关匹配。
+DAILY_TOTAL_SHEET_CANDIDATES = ["Daily total", "Daily Total", "Daily Totals", "daily total"]
 WEEKLY_SHEET = "Weekly"
 EXCLUDED_SHEETS = {DAILY_TOTAL_SHEET, WEEKLY_SHEET, "hidden0", "隐藏", "说明", "README", "readme"}
 
@@ -71,6 +81,8 @@ CAMPAIGN_ALIAS_RULES = {
     "AI Layout": ["ai layout"],
     "KC Tools": ["kc tools", "kc tool", "kctools", "kc_tool"],
     "SmartLinkSuite": ["smartlinksuite", "smart link suite", "smartlink suite"],
+    "Single Image": ["single image", "single-image", "singleimage", "static image", "image ad"],
+    "Carousel": ["carousel", "carrousel", "carousal"],
 }
 
 EMEA_COUNTRIES = {
@@ -155,12 +167,47 @@ def fmt_percent(value, decimals=2) -> str:
     return f"{value:.{decimals}%}"
 
 
+def open_excel_file(file_bytes: bytes) -> pd.ExcelFile:
+    """打开 Excel 文件。
+
+    部分新导出的 Excel (例如 NA 看板) 内部样式信息有损坏，openpyxl 在打开时会报错
+    (TypeError: expected <class 'openpyxl.styles.fills.Fill'>)。这里优先尝试默认引擎
+    (openpyxl)，失败后自动回退到 calamine 引擎，对样式问题更宽容。
+    """
+    try:
+        return pd.ExcelFile(io.BytesIO(file_bytes))
+    except Exception:
+        return pd.ExcelFile(io.BytesIO(file_bytes), engine="calamine")
+
+
+def find_sheet_name(xls: pd.ExcelFile, *candidates: str) -> str | None:
+    """按候选名称做大小写/前后空格无关的 sheet 名称匹配，返回文件中实际的 sheet 名。"""
+    normalized = {str(name).strip().lower(): name for name in xls.sheet_names}
+    for candidate in candidates:
+        key = str(candidate).strip().lower()
+        if key in normalized:
+            return normalized[key]
+    return None
+
+
 # ---------------------------------------------------------------------------
 # Meta Ads 看板加载函数
 # ---------------------------------------------------------------------------
-def looks_like_campaign_sheet(xls: pd.ExcelFile, sheet_name: str) -> bool:
+def get_non_campaign_sheet_names(xls: pd.ExcelFile) -> set[str]:
+    """计算应排除在 campaign/ad set 之外的 sheet 名称(汇总表、说明等)。"""
+    excluded = set(EXCLUDED_SHEETS)
+    daily_total_sheet = find_sheet_name(xls, *DAILY_TOTAL_SHEET_CANDIDATES)
+    if daily_total_sheet:
+        excluded.add(daily_total_sheet)
+    weekly_sheet = find_sheet_name(xls, WEEKLY_SHEET)
+    if weekly_sheet:
+        excluded.add(weekly_sheet)
+    return excluded
+
+
+def looks_like_campaign_sheet(xls: pd.ExcelFile, sheet_name: str, excluded_sheets: set[str]) -> bool:
     """判断一个 sheet 是否像 campaign/ad set 明细 sheet。"""
-    if sheet_name in EXCLUDED_SHEETS:
+    if sheet_name in excluded_sheets:
         return False
     if sheet_name.lower().startswith("hidden"):
         return False
@@ -173,12 +220,13 @@ def looks_like_campaign_sheet(xls: pd.ExcelFile, sheet_name: str) -> bool:
 
 def get_campaign_sheet_names(xls: pd.ExcelFile) -> list[str]:
     """优先读取固定 campaign sheet，同时自动兼容后续新增的 NA/ad set sheet。"""
+    excluded_sheets = get_non_campaign_sheet_names(xls)
     sheets = []
     for sheet in PREFERRED_CAMPAIGN_SHEETS:
-        if sheet in xls.sheet_names:
+        if sheet in xls.sheet_names and sheet not in excluded_sheets:
             sheets.append(sheet)
     for sheet in xls.sheet_names:
-        if sheet not in sheets and looks_like_campaign_sheet(xls, sheet):
+        if sheet not in sheets and looks_like_campaign_sheet(xls, sheet, excluded_sheets):
             sheets.append(sheet)
     return sheets
 
@@ -215,9 +263,9 @@ def load_campaign_sheet(xls: pd.ExcelFile, sheet_name: str, region: str, campaig
     return df.reset_index(drop=True)
 
 
-def load_weekly_sheet(xls: pd.ExcelFile, region: str) -> pd.DataFrame:
+def load_weekly_sheet(xls: pd.ExcelFile, region: str, sheet_name: str = WEEKLY_SHEET) -> pd.DataFrame:
     """解析多月份分块的 Weekly sheet, 自动跳过 #REF! / 空白的早期周。"""
-    raw = pd.read_excel(xls, sheet_name=WEEKLY_SHEET, header=None)
+    raw = pd.read_excel(xls, sheet_name=sheet_name, header=None)
 
     records = []
     current_month = None
@@ -275,7 +323,7 @@ def guess_region_name(filename: str) -> str:
 
 @st.cache_data(show_spinner=False)
 def load_region_file(file_bytes: bytes, region_name: str):
-    xls = pd.ExcelFile(io.BytesIO(file_bytes))
+    xls = open_excel_file(file_bytes)
 
     campaign_dfs = []
     for sheet in get_campaign_sheet_names(xls):
@@ -283,12 +331,14 @@ def load_region_file(file_bytes: bytes, region_name: str):
     campaigns = pd.concat(campaign_dfs, ignore_index=True) if campaign_dfs else pd.DataFrame()
 
     daily_total = None
-    if DAILY_TOTAL_SHEET in xls.sheet_names:
-        daily_total = load_campaign_sheet(xls, DAILY_TOTAL_SHEET, region_name, "Total")
+    daily_total_sheet = find_sheet_name(xls, *DAILY_TOTAL_SHEET_CANDIDATES)
+    if daily_total_sheet:
+        daily_total = load_campaign_sheet(xls, daily_total_sheet, region_name, "Total")
 
     weekly = None
-    if WEEKLY_SHEET in xls.sheet_names:
-        weekly = load_weekly_sheet(xls, region_name)
+    weekly_sheet = find_sheet_name(xls, WEEKLY_SHEET)
+    if weekly_sheet:
+        weekly = load_weekly_sheet(xls, region_name, weekly_sheet)
 
     return campaigns, daily_total, weekly
 
@@ -359,7 +409,7 @@ def build_lead_id(df: pd.DataFrame) -> pd.Series:
 @st.cache_data(show_spinner=False)
 def load_sales_file(file_bytes: bytes, file_name: str) -> pd.DataFrame:
     """读取销售线索导出文件，统一成 SQL/MQL 分析需要的字段。"""
-    xls = pd.ExcelFile(io.BytesIO(file_bytes))
+    xls = open_excel_file(file_bytes)
     sheet = pick_sales_sheet(xls)
     raw = pd.read_excel(xls, sheet_name=sheet)
     raw.columns = [str(c).strip() for c in raw.columns]
