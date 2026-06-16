@@ -477,27 +477,8 @@ else:
     # Embedded Google Sheet URL
     GOOGLE_SHEET_URL = "https://docs.google.com/spreadsheets/d/1_a1Ddh1Pe09GpC4r1l_vMOqCSADKZRF4OBaGSS0w84o/"
 
-    # Two-step confirmation to avoid accidental clicks
-    should_load = False
-
-    if not st.session_state.get("gs_confirm_step", False):
-        # Step 1: Initial button
-        if st.sidebar.button("Connect to Google Sheets", type="primary"):
-            st.session_state["gs_confirm_step"] = True
-            st.rerun()
-    else:
-        # Step 2: Show confirmation buttons in sidebar
-        st.sidebar.warning("⚠️ Confirm loading data?")
-
-        if st.sidebar.button("✓ Yes, Load Data", type="primary", key="confirm_yes", use_container_width=True):
-            should_load = True
-            st.session_state["gs_confirm_step"] = False
-
-        if st.sidebar.button("✗ Cancel", key="confirm_no", use_container_width=True):
-            st.session_state["gs_confirm_step"] = False
-            st.rerun()
-
-    if should_load:
+    # Direct load on button click
+    if st.sidebar.button("Connect to Google Sheets", type="primary"):
         sheet_url = GOOGLE_SHEET_URL
         try:
             import gspread
@@ -541,6 +522,11 @@ else:
                             # Parse dates with Chinese format support
                             df["Date"] = df["Date"].apply(parse_chinese_date)
                             df = df.dropna(subset=["Date"])
+
+                            # Debug: Check NA sheets
+                            if region == "NA" and not df.empty:
+                                st.sidebar.write(f"DEBUG NA: {sheet_name}, rows before Spend filter: {len(df)}, Spend notna: {df['Spend'].notna().sum()}")
+
                             df = df[df["Spend"].notna()]
                             df["Campaign"] = label
                             df["Region"] = region
