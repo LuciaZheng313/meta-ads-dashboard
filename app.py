@@ -442,12 +442,6 @@ else:
         "To connect Google Sheets, add your credentials to Streamlit Secrets "
         "and paste the sheet URL below."
     )
-    # Restore from session state on every rerun (button is only True on click frame)
-    if "gs_campaigns" in st.session_state and not st.session_state["gs_campaigns"].empty:
-        campaigns_df = st.session_state["gs_campaigns"]
-        daily_total_df = st.session_state["gs_daily"]
-        weekly_df = st.session_state["gs_weekly"]
-        st.sidebar.caption("Loaded from Google Sheets")
 
     sheet_url = st.sidebar.text_input("Google Sheet URL")
     if sheet_url and st.sidebar.button("Load from Google Sheets"):
@@ -579,6 +573,13 @@ else:
             st.sidebar.success("Connected to Google Sheets.")
         except Exception as e:
             st.sidebar.error(f"Connection failed: {e}")
+
+    # Restore from session state on every rerun (button is only True on click frame)
+    if "gs_campaigns" in st.session_state and not st.session_state["gs_campaigns"].empty:
+        campaigns_df = st.session_state["gs_campaigns"]
+        daily_total_df = st.session_state["gs_daily"]
+        weekly_df = st.session_state["gs_weekly"]
+        st.sidebar.caption("✓ Loaded from Google Sheets")
 
 
 
