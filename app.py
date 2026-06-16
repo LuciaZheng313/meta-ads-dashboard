@@ -930,7 +930,7 @@ else:
     )
     st.download_button("Download SQL/MQL table (CSV)",
                        display_cols.to_csv(index=False).encode("utf-8-sig"),
-                       file_name="sql_mql_by_campaign.csv", mime="text/csv")
+                       file_name="sql_mql_by_campaign.csv", mime="text/csv", type="primary")
 
     daily_sql = (
         sql_only.dropna(subset=["SQL Analysis Date"])
@@ -1069,7 +1069,7 @@ with st.expander("Raw data / Export"):
     st.dataframe(fdf, use_container_width=True)
     st.download_button("Download filtered Meta data (CSV)",
                        fdf.to_csv(index=False).encode("utf-8-sig"),
-                       file_name="meta_ads_filtered.csv", mime="text/csv")
+                       file_name="meta_ads_filtered.csv", mime="text/csv", type="primary")
 
 if not sales_fdf.empty:
     with st.expander("SQL leads detail / Export"):
@@ -1080,4 +1080,4 @@ if not sales_fdf.empty:
                      use_container_width=True, hide_index=True)
         st.download_button("Download SQL leads (CSV)",
                            sales_fdf[detail_cols].to_csv(index=False).encode("utf-8-sig"),
-                           file_name="sql_leads_filtered.csv", mime="text/csv")
+                           file_name="sql_leads_filtered.csv", mime="text/csv", type="primary")
