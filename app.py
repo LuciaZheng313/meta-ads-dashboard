@@ -569,26 +569,17 @@ else:
                 st.session_state["gs_daily"] = daily_total_df
                 st.session_state["gs_weekly"] = weekly_df
                 st.session_state["gs_url"] = sheet_url
-                st.session_state["show_analysis"] = True
 
-            st.sidebar.success("Connected to Google Sheets. Click 'Run Analysis' to view dashboard.")
+            st.sidebar.success("Connected to Google Sheets.")
         except Exception as e:
             st.sidebar.error(f"Connection failed: {e}")
 
     # Restore from session state on every rerun (button is only True on click frame)
     if "gs_campaigns" in st.session_state and not st.session_state["gs_campaigns"].empty:
+        campaigns_df = st.session_state["gs_campaigns"]
+        daily_total_df = st.session_state["gs_daily"]
+        weekly_df = st.session_state["gs_weekly"]
         st.sidebar.success("✓ Data loaded from Google Sheets")
-        if st.sidebar.button("Run Analysis", type="primary"):
-            campaigns_df = st.session_state["gs_campaigns"]
-            daily_total_df = st.session_state["gs_daily"]
-            weekly_df = st.session_state["gs_weekly"]
-            st.session_state["show_analysis"] = True
-
-        # Auto-load if analysis was already triggered
-        if st.session_state.get("show_analysis", False):
-            campaigns_df = st.session_state["gs_campaigns"]
-            daily_total_df = st.session_state["gs_daily"]
-            weekly_df = st.session_state["gs_weekly"]
 
 
 
