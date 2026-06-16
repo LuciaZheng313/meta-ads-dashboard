@@ -87,6 +87,12 @@ NA_COUNTRIES = {"united states", "usa", "us", "canada", "mexico"}
 def clean_numeric(series: pd.Series) -> pd.Series:
     if series is None:
         return pd.Series(dtype="float64")
+
+    # Handle currency format: remove $ and commas
+    if series.dtype == 'object':
+        series = series.astype(str).str.replace('$', '', regex=False)
+        series = series.str.replace(',', '', regex=False)
+
     return pd.to_numeric(series.replace("#REF!", np.nan), errors="coerce")
 
 
@@ -502,8 +508,6 @@ else:
                 all_campaigns, all_daily, all_weekly = [], [], []
 
                 for region, sheets in sheet_map.items():
-                    st.sidebar.write(f"DEBUG: Processing region '{region}', campaigns: {sheets['campaigns']}")
-
                     # Campaign sheets
                     for sheet_name in sheets["campaigns"]:
                         try:
@@ -511,18 +515,8 @@ else:
                             # Get all records - let gspread handle numeric conversion automatically
                             records = ws.get_all_records(expected_headers=[])
                             if not records:
-                                st.sidebar.write(f"DEBUG: {sheet_name} - no records from API")
                                 continue
                             df = pd.DataFrame(records)
-                            st.sidebar.write(f"DEBUG: {sheet_name} - initial: {len(df)} rows")
-
-                            # Debug: Check raw Spend values for NA sheets
-                            if region == "NA" and 'Spend' in df.columns and len(df) > 0:
-                                spend_sample = df['Spend'].head(3).tolist()
-                                spend_types = [type(x).__name__ for x in df['Spend'].head(3)]
-                                st.sidebar.write(f"DEBUG: {sheet_name} - Spend raw values: {spend_sample}")
-                                st.sidebar.write(f"DEBUG: {sheet_name} - Spend types: {spend_types}")
-
                             _, label, _ = parse_tab_name(sheet_name)
                             # Numeric conversion
                             for col in STANDARD_COLS:
@@ -531,30 +525,21 @@ else:
                             df = df[STANDARD_COLS].copy()
                             for col in NUMERIC_COLS:
                                 df[col] = clean_numeric(df[col])
-
-                            # Check Spend before filtering
-                            if 'Spend' in df.columns:
-                                spend_before = df['Spend'].notna().sum()
-                                st.sidebar.write(f"DEBUG: {sheet_name} - Spend notna: {spend_before}")
-
                             mask_cpc = df["CPC"].isna() & df["Spend"].notna() & df["Link Clicks"].notna() & (df["Link Clicks"] != 0)
                             df.loc[mask_cpc, "CPC"] = df.loc[mask_cpc, "Spend"] / df.loc[mask_cpc, "Link Clicks"]
                             mask_ctr = df["Impressions"].notna() & (df["Impressions"] != 0) & df["Link Clicks"].notna()
                             df.loc[mask_ctr, "CTR"] = df.loc[mask_ctr, "Link Clicks"] / df.loc[mask_ctr, "Impressions"]
                             # Parse dates with multiple format support
                             df["Date"] = df["Date"].apply(parse_date)
-                            st.sidebar.write(f"DEBUG: {sheet_name} - after date parse: {len(df)} rows, valid dates: {df['Date'].notna().sum()}")
                             df = df.dropna(subset=["Date"])
                             df = df[df["Spend"].notna()]
-                            st.sidebar.write(f"DEBUG: {sheet_name} - final: {len(df)} rows")
-
                             df["Campaign"] = label
                             df["Region"] = region
                             df["RegionKey"] = normalize_region(region)
                             if not df.empty:
                                 all_campaigns.append(df.reset_index(drop=True))
                         except Exception as e:
-                            st.sidebar.error(f"ERROR loading '{sheet_name}': {e}")
+                            st.warning(f"Could not load sheet '{sheet_name}': {e}")
 
                     # Daily total
                     if sheets["daily"]:
@@ -628,15 +613,6 @@ else:
                 temp_daily_total_df = pd.concat(all_daily, ignore_index=True) if all_daily else pd.DataFrame()
                 temp_weekly_df = pd.concat(all_weekly, ignore_index=True) if all_weekly else pd.DataFrame()
 
-                # Debug: Show what regions were loaded
-                if not temp_campaigns_df.empty:
-                    regions_loaded = temp_campaigns_df['Region'].unique().tolist()
-                    st.sidebar.write(f"DEBUG: Regions loaded: {regions_loaded}")
-                    st.sidebar.write(f"DEBUG: Total rows: {len(temp_campaigns_df)}")
-                    # Show row counts per region
-                    region_counts = temp_campaigns_df.groupby('Region').size().to_dict()
-                    st.sidebar.write(f"DEBUG: Rows per region: {region_counts}")
-
                 st.session_state["gs_campaigns"] = temp_campaigns_df
                 st.session_state["gs_daily"] = temp_daily_total_df
                 st.session_state["gs_weekly"] = temp_weekly_df
@@ -656,7 +632,6 @@ if data_source == "Connect Google Sheets" and "gs_campaigns" in st.session_state
         campaigns_df = st.session_state["gs_campaigns"]
         daily_total_df = st.session_state["gs_daily"]
         weekly_df = st.session_state["gs_weekly"]
-        st.sidebar.success(f"✓ Data loaded from Google Sheets ({len(campaigns_df)} rows)")
 
 
 
