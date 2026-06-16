@@ -56,18 +56,20 @@ st.markdown("""
         border-color: #5b7ed8 !important;
     }
 
-    /* Radio buttons */
-    div[data-testid="stRadio"] label[data-baseweb="radio"] > div:first-child {
-        border-color: #d0d0d0 !important;
+    /* Radio buttons - the outer circle */
+    div[data-testid="stRadio"] label[data-baseweb="radio"] > div:first-child > div:first-child {
+        border: 2px solid #d0d0d0 !important;
+        background-color: white !important;
     }
 
-    /* Radio button when checked - blue border */
-    div[data-testid="stRadio"] label[data-baseweb="radio"] input:checked ~ div:first-child {
-        border-color: #5b7ed8 !important;
+    /* Radio button outer circle when checked - no border, just blue background */
+    div[data-testid="stRadio"] label[data-baseweb="radio"] input:checked ~ div:first-child > div:first-child {
+        border: none !important;
+        background-color: #5b7ed8 !important;
     }
 
-    /* Radio button inner dot - black when checked */
-    div[data-testid="stRadio"] label[data-baseweb="radio"] input:checked ~ div > div:first-child {
+    /* Radio button inner dot when checked - black */
+    div[data-testid="stRadio"] label[data-baseweb="radio"] input:checked ~ div:first-child > div:first-child > div {
         background-color: #000000 !important;
     }
 </style>
