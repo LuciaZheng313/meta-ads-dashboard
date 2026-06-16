@@ -592,9 +592,10 @@ st.title("📊 Meta Ads 多地区效果看板")
 
 # 由于原始数据是累积的，需要计算每日增量
 # 方法：按 Region + Campaign 分组，计算每天的差值
+# 注意：第一天的diff结果为NaN，我们将其设为NaN而不是累积值，避免重复计算历史花费
 kpi_data = fdf.copy().sort_values(["Region", "Campaign", "Date"])
-kpi_data["Daily Spend"] = kpi_data.groupby(["Region", "Campaign"])["Spend"].diff().fillna(kpi_data["Spend"])
-kpi_data["Daily Leads"] = kpi_data.groupby(["Region", "Campaign"])["Leads"].diff().fillna(kpi_data["Leads"])
+kpi_data["Daily Spend"] = kpi_data.groupby(["Region", "Campaign"])["Spend"].diff()
+kpi_data["Daily Leads"] = kpi_data.groupby(["Region", "Campaign"])["Leads"].diff()
 
 # 优先使用 Daily New Leads 字段（如果有值）
 kpi_data["Daily Leads"] = kpi_data["Daily New Leads"].fillna(kpi_data["Daily Leads"])
@@ -669,9 +670,10 @@ if trend_view_mode == "按区域汇总 (Region Total)":
     )
     # Calculate daily delta for Spend and Leads (since Excel shows cumulative)
     # For each Region, calculate the difference from previous day
+    # 注意：第一天设为NaN避免重复计算
     trend_data = trend_data.sort_values(["Region", "Date"])
-    trend_data["Daily Spend"] = trend_data.groupby("Region")["Spend"].diff().fillna(trend_data["Spend"])
-    trend_data["Daily Leads"] = trend_data.groupby("Region")["Leads"].diff().fillna(trend_data["Leads"])
+    trend_data["Daily Spend"] = trend_data.groupby("Region")["Spend"].diff()
+    trend_data["Daily Leads"] = trend_data.groupby("Region")["Leads"].diff()
 
     # 优先使用 Daily New Leads 字段（如果有值），否则使用计算的差值
     trend_data["Daily Leads"] = trend_data["Daily New Leads"].fillna(trend_data["Daily Leads"])
@@ -685,8 +687,9 @@ else:
     trend_data = fdf.copy()
     trend_data = trend_data.sort_values(["Region", "Campaign", "Date"])
     # Calculate daily delta for Spend and Leads for each Campaign
-    trend_data["Daily Spend"] = trend_data.groupby(["Region", "Campaign"])["Spend"].diff().fillna(trend_data["Spend"])
-    trend_data["Daily Leads"] = trend_data.groupby(["Region", "Campaign"])["Leads"].diff().fillna(trend_data["Leads"])
+    # 注意：第一天设为NaN避免重复计算
+    trend_data["Daily Spend"] = trend_data.groupby(["Region", "Campaign"])["Spend"].diff()
+    trend_data["Daily Leads"] = trend_data.groupby(["Region", "Campaign"])["Leads"].diff()
 
     # 优先使用 Daily New Leads 字段（如果有值），否则使用计算的差值
     trend_data["Daily Leads"] = trend_data["Daily New Leads"].fillna(trend_data["Daily Leads"])
@@ -968,9 +971,10 @@ if not daily_total_df.empty:
     dt = daily_total_df[dt_mask].copy()
 
     # 计算每日差值（原始数据是从 campaign 开始的累积数据）
+    # 注意：第一天设为NaN避免重复计算
     dt = dt.sort_values(["Region", "Date"])
-    dt["Daily Spend"] = dt.groupby("Region")["Spend"].diff().fillna(dt["Spend"])
-    dt["Daily Leads"] = dt.groupby("Region")["Leads"].diff().fillna(dt["Leads"])
+    dt["Daily Spend"] = dt.groupby("Region")["Spend"].diff()
+    dt["Daily Leads"] = dt.groupby("Region")["Leads"].diff()
 
     # 基于每日数据重新计算 CPL
     dt["Daily CPL"] = dt["Daily Spend"] / dt["Daily Leads"].replace(0, np.nan)
