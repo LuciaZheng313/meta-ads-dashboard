@@ -458,25 +458,127 @@ else:
             gc = gspread.authorize(creds)
             sh = gc.open_by_url(sheet_url)
 
-            # Export each worksheet to bytes via gspread, then reuse loader
-            import openpyxl
-            wb = openpyxl.Workbook()
-            wb.remove(wb.active)
-            for ws in sh.worksheets():
-                data = ws.get_all_values()
-                if not data:
-                    continue
-                new_ws = wb.create_sheet(title=ws.title)
-                for row in data:
-                    new_ws.append(row)
-            buf = io.BytesIO()
-            wb.save(buf)
-            buf.seek(0)
             with st.spinner("Loading data from Google Sheets..."):
-                campaigns_df, daily_total_df, weekly_df = load_single_file(buf.read())
+                sheet_map = classify_sheets([ws.title for ws in sh.worksheets()])
+                all_campaigns, all_daily, all_weekly = [], [], []
+
+                for region, sheets in sheet_map.items():
+                    # Campaign sheets
+                    for sheet_name in sheets["campaigns"]:
+                        try:
+                            ws = sh.worksheet(sheet_name)
+                            records = ws.get_all_records(expected_headers=[], numericise_ignore=["all"])
+                            if not records:
+                                continue
+                            df = pd.DataFrame(records)
+                            _, label, _ = parse_tab_name(sheet_name)
+                            # Numeric conversion
+                            for col in STANDARD_COLS:
+                                if col not in df.columns:
+                                    df[col] = np.nan
+                            df = df[STANDARD_COLS].copy()
+                            for col in NUMERIC_COLS:
+                                df[col] = clean_numeric(df[col])
+                            mask_cpc = df["CPC"].isna() & df["Spend"].notna() & df["Link Clicks"].notna() & (df["Link Clicks"] != 0)
+                            df.loc[mask_cpc, "CPC"] = df.loc[mask_cpc, "Spend"] / df.loc[mask_cpc, "Link Clicks"]
+                            mask_ctr = df["Impressions"].notna() & (df["Impressions"] != 0) & df["Link Clicks"].notna()
+                            df.loc[mask_ctr, "CTR"] = df.loc[mask_ctr, "Link Clicks"] / df.loc[mask_ctr, "Impressions"]
+                            df["Date"] = pd.to_datetime(df["Date"], errors="coerce")
+                            df = df.dropna(subset=["Date"])
+                            df = df[df["Spend"].notna()]
+                            df["Campaign"] = label
+                            df["Region"] = region
+                            df["RegionKey"] = normalize_region(region)
+                            all_campaigns.append(df.reset_index(drop=True))
+                        except Exception as e:
+                            st.warning(f"Could not load sheet '{sheet_name}': {e}")
+
+                    # Daily total
+                    if sheets["daily"]:
+                        try:
+                            ws = sh.worksheet(sheets["daily"])
+                            records = ws.get_all_records(expected_headers=[], numericise_ignore=["all"])
+                            if records:
+                                df = pd.DataFrame(records)
+                                for col in STANDARD_COLS:
+                                    if col not in df.columns:
+                                        df[col] = np.nan
+                                df = df[STANDARD_COLS].copy()
+                                for col in NUMERIC_COLS:
+                                    df[col] = clean_numeric(df[col])
+                                df["Date"] = pd.to_datetime(df["Date"], errors="coerce")
+                                df = df.dropna(subset=["Date"])
+                                df = df[df["Spend"].notna()]
+                                df["Campaign"] = "Total"
+                                df["Region"] = region
+                                df["RegionKey"] = normalize_region(region)
+                                all_daily.append(df.reset_index(drop=True))
+                        except Exception as e:
+                            st.warning(f"Could not load daily sheet '{sheets['daily']}': {e}")
+
+                    # Weekly
+                    if sheets["weekly"]:
+                        try:
+                            ws = sh.worksheet(sheets["weekly"])
+                            raw_vals = ws.get_all_values()
+                            if raw_vals:
+                                raw = pd.DataFrame(raw_vals)
+                                records_w = []
+                                current_month = None
+                                for _, row in raw.iterrows():
+                                    first = row[0]
+                                    if not first or str(first).strip() == "":
+                                        continue
+                                    first_str = str(first).strip()
+                                    if first_str in MONTH_NAMES:
+                                        current_month = first_str
+                                        continue
+                                    if first_str == "Week":
+                                        continue
+                                    if first_str.startswith("Week"):
+                                        records_w.append({
+                                            "Month": current_month,
+                                            "Week": first_str,
+                                            "Spend": row[1] if len(row) > 1 else np.nan,
+                                            "Leads": row[2] if len(row) > 2 else np.nan,
+                                            "Avg CPL": row[3] if len(row) > 3 else np.nan,
+                                        })
+                                if records_w:
+                                    dfw = pd.DataFrame(records_w)
+                                    for col in ["Spend", "Leads", "Avg CPL"]:
+                                        dfw[col] = clean_numeric(dfw[col])
+                                    dfw = dfw.dropna(subset=["Spend", "Leads", "Avg CPL"], how="all")
+                                    if not dfw.empty:
+                                        month_order = {m: i for i, m in enumerate(MONTH_NAMES)}
+                                        dfw["MonthOrder"] = dfw["Month"].map(month_order)
+                                        dfw["WeekNum"] = dfw["Week"].str.extract(r"(\d+)").astype(int)
+                                        dfw = dfw.sort_values(["MonthOrder", "WeekNum"]).reset_index(drop=True)
+                                        dfw["Period"] = dfw["Month"].str[:3] + " " + dfw["Week"]
+                                        dfw["Region"] = region
+                                        dfw["RegionKey"] = normalize_region(region)
+                                        all_weekly.append(dfw)
+                        except Exception as e:
+                            st.warning(f"Could not load weekly sheet '{sheets['weekly']}': {e}")
+
+                campaigns_df = pd.concat(all_campaigns, ignore_index=True) if all_campaigns else pd.DataFrame()
+                daily_total_df = pd.concat(all_daily, ignore_index=True) if all_daily else pd.DataFrame()
+                weekly_df = pd.concat(all_weekly, ignore_index=True) if all_weekly else pd.DataFrame()
+
+                st.session_state["gs_campaigns"] = campaigns_df
+                st.session_state["gs_daily"] = daily_total_df
+                st.session_state["gs_weekly"] = weekly_df
+                st.session_state["gs_url"] = sheet_url
+
             st.sidebar.success("Connected to Google Sheets.")
         except Exception as e:
             st.sidebar.error(f"Connection failed: {e}")
+
+    # Restore from session state if already loaded
+    if "gs_campaigns" in st.session_state and not st.session_state["gs_campaigns"].empty:
+        campaigns_df = st.session_state["gs_campaigns"]
+        daily_total_df = st.session_state["gs_daily"]
+        weekly_df = st.session_state["gs_weekly"]
+        st.sidebar.caption(f"Loaded from Google Sheets")
 
 # --- SQL file ---
 st.sidebar.markdown("---")
