@@ -479,10 +479,6 @@ if data_source == "Upload Excel file":
             campaigns_df, daily_total_df, weekly_df = load_single_file(uploaded_file.getvalue())
 
 else:
-    st.sidebar.info(
-        "Connect to the Meta Ads Google Sheet"
-    )
-
     # Embedded Google Sheet URL
     GOOGLE_SHEET_URL = "https://docs.google.com/spreadsheets/d/1_a1Ddh1Pe09GpC4r1l_vMOqCSADKZRF4OBaGSS0w84o/"
 
