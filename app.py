@@ -112,6 +112,38 @@ def normalize_region(value) -> str:
     return str(value).strip().upper()
 
 
+def parse_chinese_date(date_str, reference_year=2026):
+    """
+    Parse Chinese date format like '4月1日' or '12月31日'
+    Returns a datetime object with year 2026
+    """
+    if pd.isna(date_str) or date_str == "":
+        return pd.NaT
+
+    date_str = str(date_str).strip()
+
+    # Try standard datetime parsing first
+    try:
+        result = pd.to_datetime(date_str, errors="coerce")
+        if pd.notna(result):
+            return result
+    except:
+        pass
+
+    # Try Chinese format: X月Y日
+    match = re.match(r'(\d+)月(\d+)日', date_str)
+    if match:
+        month = int(match.group(1))
+        day = int(match.group(2))
+
+        try:
+            return pd.Timestamp(year=reference_year, month=month, day=day)
+        except:
+            return pd.NaT
+
+    return pd.NaT
+
+
 def first_existing_col(df: pd.DataFrame, candidates: Iterable[str]):
     for col in candidates:
         if col in df.columns:
@@ -495,7 +527,8 @@ else:
                             df.loc[mask_cpc, "CPC"] = df.loc[mask_cpc, "Spend"] / df.loc[mask_cpc, "Link Clicks"]
                             mask_ctr = df["Impressions"].notna() & (df["Impressions"] != 0) & df["Link Clicks"].notna()
                             df.loc[mask_ctr, "CTR"] = df.loc[mask_ctr, "Link Clicks"] / df.loc[mask_ctr, "Impressions"]
-                            df["Date"] = pd.to_datetime(df["Date"], errors="coerce")
+                            # Parse dates with Chinese format support
+                            df["Date"] = df["Date"].apply(parse_chinese_date)
                             st.sidebar.write(f"DEBUG: {sheet_name} - after date parse: {len(df)}, valid dates: {df['Date'].notna().sum()}")
                             df = df.dropna(subset=["Date"])
                             st.sidebar.write(f"DEBUG: {sheet_name} - after drop na dates: {len(df)}, valid spend: {df['Spend'].notna().sum()}")
@@ -522,7 +555,8 @@ else:
                                 df = df[STANDARD_COLS].copy()
                                 for col in NUMERIC_COLS:
                                     df[col] = clean_numeric(df[col])
-                                df["Date"] = pd.to_datetime(df["Date"], errors="coerce")
+                                # Parse dates with Chinese format support
+                                df["Date"] = df["Date"].apply(parse_chinese_date)
                                 df = df.dropna(subset=["Date"])
                                 df = df[df["Spend"].notna()]
                                 df["Campaign"] = "Total"
