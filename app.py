@@ -477,8 +477,6 @@ else:
 
     sheet_url = st.sidebar.text_input("Google Sheet URL", key="gs_url_input")
 
-    st.sidebar.write(f"DEBUG: sheet_url = '{sheet_url}'")
-
     if sheet_url and st.sidebar.button("Load from Google Sheets"):
         try:
             import gspread
@@ -505,16 +503,8 @@ else:
                             ws = sh.worksheet(sheet_name)
                             records = ws.get_all_records(expected_headers=[], numericise_ignore=["all"])
                             if not records:
-                                st.sidebar.write(f"DEBUG: {sheet_name} - no records")
                                 continue
                             df = pd.DataFrame(records)
-                            st.sidebar.write(f"DEBUG: {sheet_name} - initial rows: {len(df)}")
-
-                            # Check date column sample
-                            if "Date" in df.columns and len(df) > 0:
-                                sample_dates = df["Date"].head(3).tolist()
-                                st.sidebar.write(f"DEBUG: {sheet_name} - Date samples: {sample_dates}")
-
                             _, label, _ = parse_tab_name(sheet_name)
                             # Numeric conversion
                             for col in STANDARD_COLS:
@@ -529,11 +519,8 @@ else:
                             df.loc[mask_ctr, "CTR"] = df.loc[mask_ctr, "Link Clicks"] / df.loc[mask_ctr, "Impressions"]
                             # Parse dates with Chinese format support
                             df["Date"] = df["Date"].apply(parse_chinese_date)
-                            st.sidebar.write(f"DEBUG: {sheet_name} - after date parse: {len(df)}, valid dates: {df['Date'].notna().sum()}")
                             df = df.dropna(subset=["Date"])
-                            st.sidebar.write(f"DEBUG: {sheet_name} - after drop na dates: {len(df)}, valid spend: {df['Spend'].notna().sum()}")
                             df = df[df["Spend"].notna()]
-                            st.sidebar.write(f"DEBUG: {sheet_name} - final rows: {len(df)}")
                             df["Campaign"] = label
                             df["Region"] = region
                             df["RegionKey"] = normalize_region(region)
@@ -614,9 +601,6 @@ else:
                 temp_daily_total_df = pd.concat(all_daily, ignore_index=True) if all_daily else pd.DataFrame()
                 temp_weekly_df = pd.concat(all_weekly, ignore_index=True) if all_weekly else pd.DataFrame()
 
-                st.sidebar.write(f"DEBUG: Loaded campaigns_df shape = {temp_campaigns_df.shape}")
-                st.sidebar.write(f"DEBUG: all_campaigns count = {len(all_campaigns)}")
-
                 st.session_state["gs_campaigns"] = temp_campaigns_df
                 st.session_state["gs_daily"] = temp_daily_total_df
                 st.session_state["gs_weekly"] = temp_weekly_df
@@ -630,17 +614,13 @@ else:
             st.sidebar.error(f"Connection failed: {e}")
 
 # Restore from session state on every rerun (after both if/else blocks)
-if "gs_campaigns" in st.session_state:
-    st.sidebar.write(f"DEBUG: gs_campaigns exists, empty={st.session_state['gs_campaigns'].empty}, shape={st.session_state['gs_campaigns'].shape}")
+# Only restore if user is still on Google Sheets mode
+if data_source == "Connect Google Sheets" and "gs_campaigns" in st.session_state:
     if not st.session_state["gs_campaigns"].empty:
         campaigns_df = st.session_state["gs_campaigns"]
         daily_total_df = st.session_state["gs_daily"]
         weekly_df = st.session_state["gs_weekly"]
         st.sidebar.success(f"✓ Data loaded from Google Sheets ({len(campaigns_df)} rows)")
-    else:
-        st.sidebar.warning("DEBUG: gs_campaigns is empty")
-else:
-    st.sidebar.info("DEBUG: gs_campaigns not in session_state")
 
 
 
@@ -654,7 +634,6 @@ uploaded_sql_files = st.sidebar.file_uploader(
     key="sql_files",
 )
 
-st.write(f"DEBUG: Before check - campaigns_df.empty = {campaigns_df.empty}, shape = {campaigns_df.shape}")
 if campaigns_df.empty:
     st.info("Upload the unified Meta Ads overview Excel file in the sidebar to get started.")
     st.stop()
