@@ -56,22 +56,19 @@ st.markdown("""
         border-color: #5b7ed8 !important;
     }
 
-    /* Radio buttons - outer circle */
-    .stRadio > div[role="radiogroup"] > label > div:first-child {
-        background-color: white !important;
+    /* Radio buttons */
+    div[data-testid="stRadio"] label[data-baseweb="radio"] > div:first-child {
         border-color: #d0d0d0 !important;
     }
-    /* Radio button when checked - outer circle becomes blue */
-    .stRadio > div[role="radiogroup"] > label[data-checked="true"] > div:first-child {
-        background-color: white !important;
+
+    /* Radio button when checked - blue border */
+    div[data-testid="stRadio"] label[data-baseweb="radio"] input:checked ~ div:first-child {
         border-color: #5b7ed8 !important;
     }
-    /* Radio button inner dot when checked - make it black */
-    .stRadio > div[role="radiogroup"] > label[data-checked="true"] > div:first-child::before {
+
+    /* Radio button inner dot - black when checked */
+    div[data-testid="stRadio"] label[data-baseweb="radio"] input:checked ~ div > div:first-child {
         background-color: #000000 !important;
-    }
-    .stRadio > div[role="radiogroup"] > label[data-checked="true"] svg circle {
-        fill: #000000 !important;
     }
 </style>
 """, unsafe_allow_html=True)
