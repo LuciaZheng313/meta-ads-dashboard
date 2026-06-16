@@ -502,6 +502,8 @@ else:
                 all_campaigns, all_daily, all_weekly = [], [], []
 
                 for region, sheets in sheet_map.items():
+                    st.sidebar.write(f"DEBUG: Processing region '{region}', campaigns: {sheets['campaigns']}")
+
                     # Campaign sheets
                     for sheet_name in sheets["campaigns"]:
                         try:
@@ -509,8 +511,11 @@ else:
                             # Get all records - let gspread handle numeric conversion automatically
                             records = ws.get_all_records(expected_headers=[])
                             if not records:
+                                st.sidebar.write(f"DEBUG: {sheet_name} - no records from API")
                                 continue
                             df = pd.DataFrame(records)
+                            st.sidebar.write(f"DEBUG: {sheet_name} - initial: {len(df)} rows")
+
                             _, label, _ = parse_tab_name(sheet_name)
                             # Numeric conversion
                             for col in STANDARD_COLS:
@@ -519,21 +524,30 @@ else:
                             df = df[STANDARD_COLS].copy()
                             for col in NUMERIC_COLS:
                                 df[col] = clean_numeric(df[col])
+
+                            # Check Spend before filtering
+                            if 'Spend' in df.columns:
+                                spend_before = df['Spend'].notna().sum()
+                                st.sidebar.write(f"DEBUG: {sheet_name} - Spend notna: {spend_before}")
+
                             mask_cpc = df["CPC"].isna() & df["Spend"].notna() & df["Link Clicks"].notna() & (df["Link Clicks"] != 0)
                             df.loc[mask_cpc, "CPC"] = df.loc[mask_cpc, "Spend"] / df.loc[mask_cpc, "Link Clicks"]
                             mask_ctr = df["Impressions"].notna() & (df["Impressions"] != 0) & df["Link Clicks"].notna()
                             df.loc[mask_ctr, "CTR"] = df.loc[mask_ctr, "Link Clicks"] / df.loc[mask_ctr, "Impressions"]
                             # Parse dates with multiple format support
                             df["Date"] = df["Date"].apply(parse_date)
+                            st.sidebar.write(f"DEBUG: {sheet_name} - after date parse: {len(df)} rows, valid dates: {df['Date'].notna().sum()}")
                             df = df.dropna(subset=["Date"])
                             df = df[df["Spend"].notna()]
+                            st.sidebar.write(f"DEBUG: {sheet_name} - final: {len(df)} rows")
+
                             df["Campaign"] = label
                             df["Region"] = region
                             df["RegionKey"] = normalize_region(region)
                             if not df.empty:
                                 all_campaigns.append(df.reset_index(drop=True))
                         except Exception as e:
-                            st.warning(f"Could not load sheet '{sheet_name}': {e}")
+                            st.sidebar.error(f"ERROR loading '{sheet_name}': {e}")
 
                     # Daily total
                     if sheets["daily"]:
