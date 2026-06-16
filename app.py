@@ -26,34 +26,34 @@ import streamlit as st
 
 st.set_page_config(page_title="Meta Ads Dashboard", layout="wide")
 
-# Custom CSS to change button color to #3a66ff
+# Custom CSS to change button color to a softer blue
 st.markdown("""
 <style>
     /* Primary buttons */
     .stButton > button[kind="primary"],
     .stDownloadButton > button[kind="primary"] {
-        background-color: #3a66ff !important;
-        border-color: #3a66ff !important;
+        background-color: #5b7ed8 !important;
+        border-color: #5b7ed8 !important;
     }
     .stButton > button[kind="primary"]:hover,
     .stDownloadButton > button[kind="primary"]:hover {
-        background-color: #2952cc !important;
-        border-color: #2952cc !important;
+        background-color: #4a6bb8 !important;
+        border-color: #4a6bb8 !important;
     }
     .stButton > button[kind="primary"]:active,
     .stDownloadButton > button[kind="primary"]:active {
-        background-color: #1e3d99 !important;
-        border-color: #1e3d99 !important;
+        background-color: #3a5898 !important;
+        border-color: #3a5898 !important;
     }
 
     /* Multiselect tags/pills (Region, Campaign filter chips) */
     .stMultiSelect span[data-baseweb="tag"] {
-        background-color: #3a66ff !important;
+        background-color: #5b7ed8 !important;
     }
 
     /* Multiselect dropdown background when selecting */
     .stMultiSelect div[data-baseweb="select"] > div {
-        border-color: #3a66ff !important;
+        border-color: #5b7ed8 !important;
     }
 
     /* Radio buttons */
@@ -62,12 +62,12 @@ st.markdown("""
         border-color: #d0d0d0 !important;
     }
     .stRadio > div[role="radiogroup"] > label[data-checked="true"] > div:first-child {
-        background-color: #3a66ff !important;
-        border-color: #3a66ff !important;
+        background-color: #5b7ed8 !important;
+        border-color: #5b7ed8 !important;
     }
     /* Radio button inner circle when checked - make it darker */
     .stRadio > div[role="radiogroup"] > label[data-checked="true"] > div:first-child > div {
-        background-color: #2a2a2a !important;
+        background-color: #1a1a1a !important;
     }
 </style>
 """, unsafe_allow_html=True)
