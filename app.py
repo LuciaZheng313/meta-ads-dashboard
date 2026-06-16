@@ -55,23 +55,6 @@ st.markdown("""
     .stMultiSelect div[data-baseweb="select"] > div {
         border-color: #5b7ed8 !important;
     }
-
-    /* Radio buttons - the outer circle */
-    div[data-testid="stRadio"] label[data-baseweb="radio"] > div:first-child > div:first-child {
-        border: 2px solid #d0d0d0 !important;
-        background-color: white !important;
-    }
-
-    /* Radio button outer circle when checked - no border, just blue background */
-    div[data-testid="stRadio"] label[data-baseweb="radio"] input:checked ~ div:first-child > div:first-child {
-        border: none !important;
-        background-color: #5b7ed8 !important;
-    }
-
-    /* Radio button inner dot when checked - black */
-    div[data-testid="stRadio"] label[data-baseweb="radio"] input:checked ~ div:first-child > div:first-child > div {
-        background-color: #000000 !important;
-    }
 </style>
 """, unsafe_allow_html=True)
 
