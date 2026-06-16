@@ -45,6 +45,21 @@ st.markdown("""
         background-color: #1e3d99 !important;
         border-color: #1e3d99 !important;
     }
+
+    /* Multiselect tags/pills (Region, Campaign filter chips) */
+    .stMultiSelect span[data-baseweb="tag"] {
+        background-color: #3a66ff !important;
+    }
+
+    /* Radio buttons */
+    .stRadio > div[role="radiogroup"] > label > div:first-child {
+        background-color: white !important;
+        border-color: #3a66ff !important;
+    }
+    .stRadio > div[role="radiogroup"] > label[data-checked="true"] > div:first-child {
+        background-color: #3a66ff !important;
+        border-color: #3a66ff !important;
+    }
 </style>
 """, unsafe_allow_html=True)
 
