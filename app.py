@@ -591,9 +591,6 @@ else:
 st.title("📊 Meta Ads 多地区效果看板")
 
 total_spend = fdf["Spend"].sum()
-# Calculate number of unique days for average calculation
-num_days = fdf["Date"].nunique()
-avg_daily_spend = total_spend / num_days if num_days > 0 else np.nan
 total_leads = fdf["Leads"].sum()
 blended_cpl = total_spend / total_leads if total_leads else np.nan
 avg_ctr = fdf["CTR"].mean()
@@ -605,7 +602,7 @@ if not sales_fdf.empty:
     cost_per_sql = total_spend / total_sql if total_sql else np.nan
 
     c1, c2, c3, c4, c5, c6, c7 = st.columns(7)
-    c1.metric("日均花费 Avg Daily Spend", f"${avg_daily_spend:,.0f}")
+    c1.metric("总花费 Spend", f"${total_spend:,.0f}")
     c2.metric("MQL Leads", f"{total_leads:,.0f}")
     c3.metric("SQL", f"{total_sql:,.0f}")
     c4.metric("SQL / MQL", fmt_percent(sql_mql_cvr, 2))
@@ -614,7 +611,7 @@ if not sales_fdf.empty:
     c7.metric("平均 CTR", fmt_percent(avg_ctr, 2))
 else:
     c1, c2, c3, c4, c5 = st.columns(5)
-    c1.metric("日均花费 Avg Daily Spend", f"${avg_daily_spend:,.0f}")
+    c1.metric("总花费 Spend", f"${total_spend:,.0f}")
     c2.metric("总线索 Leads / MQL", f"{total_leads:,.0f}")
     c3.metric("综合 CPL", fmt_number(blended_cpl, 2, prefix="$"))
     c4.metric("平均 CTR", fmt_percent(avg_ctr, 2))
@@ -659,6 +656,11 @@ if trend_view_mode == "按区域汇总 (Region Total)":
         })
         .reset_index()
     )
+    # Calculate daily delta for Spend (since Excel shows cumulative)
+    # For each Region, calculate the difference from previous day
+    trend_data = trend_data.sort_values(["Region", "Date"])
+    trend_data["Daily Spend"] = trend_data.groupby("Region")["Spend"].diff().fillna(trend_data["Spend"])
+
     # Recalculate CPL based on aggregated Spend and Leads
     trend_data["CPL"] = trend_data["Spend"] / trend_data["Leads"].replace(0, np.nan)
     trend_data["Series"] = trend_data["Region"]
@@ -666,12 +668,19 @@ if trend_view_mode == "按区域汇总 (Region Total)":
 else:
     # Show individual campaigns within each region
     trend_data = fdf.copy()
+    trend_data = trend_data.sort_values(["Region", "Campaign", "Date"])
+    # Calculate daily delta for Spend for each Campaign
+    trend_data["Daily Spend"] = trend_data.groupby(["Region", "Campaign"])["Spend"].diff().fillna(trend_data["Spend"])
+
     trend_data["Series"] = trend_data["Region"] + " - " + trend_data["Campaign"]
     title_suffix = "(各区域Campaign明细)"
 
+# Use Daily Spend if user selects Spend metric
+display_metric = "Daily Spend" if trend_metric == "Spend" else trend_metric
+
 fig_trend = px.line(
     trend_data.sort_values("Date"),
-    x="Date", y=trend_metric, color="Series",
+    x="Date", y=display_metric, color="Series",
     markers=False,
     title=f"{trend_metric} 每日趋势 {title_suffix}",
 )
