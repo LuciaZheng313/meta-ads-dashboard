@@ -112,17 +112,19 @@ def normalize_region(value) -> str:
     return str(value).strip().upper()
 
 
-def parse_chinese_date(date_str, reference_year=2026):
+def parse_date(date_str):
     """
-    Parse Chinese date format like '4月1日' or '12月31日'
-    Returns a datetime object with year 2026
+    Parse date in multiple formats:
+    - MM/DD/YYYY (e.g., 06/12/2026)
+    - Chinese format: X月Y日 (e.g., 4月1日)
+    - Standard datetime formats
     """
     if pd.isna(date_str) or date_str == "":
         return pd.NaT
 
     date_str = str(date_str).strip()
 
-    # Try standard datetime parsing first
+    # Try standard datetime parsing first (handles MM/DD/YYYY and other formats)
     try:
         result = pd.to_datetime(date_str, errors="coerce")
         if pd.notna(result):
@@ -137,7 +139,8 @@ def parse_chinese_date(date_str, reference_year=2026):
         day = int(match.group(2))
 
         try:
-            return pd.Timestamp(year=reference_year, month=month, day=day)
+            # Use 2026 as default year for Chinese format
+            return pd.Timestamp(year=2026, month=month, day=day)
         except:
             return pd.NaT
 
@@ -519,8 +522,8 @@ else:
                             df.loc[mask_cpc, "CPC"] = df.loc[mask_cpc, "Spend"] / df.loc[mask_cpc, "Link Clicks"]
                             mask_ctr = df["Impressions"].notna() & (df["Impressions"] != 0) & df["Link Clicks"].notna()
                             df.loc[mask_ctr, "CTR"] = df.loc[mask_ctr, "Link Clicks"] / df.loc[mask_ctr, "Impressions"]
-                            # Parse dates with Chinese format support
-                            df["Date"] = df["Date"].apply(parse_chinese_date)
+                            # Parse dates with multiple format support
+                            df["Date"] = df["Date"].apply(parse_date)
                             df = df.dropna(subset=["Date"])
 
                             # Debug: Check NA sheets
@@ -549,8 +552,8 @@ else:
                                 df = df[STANDARD_COLS].copy()
                                 for col in NUMERIC_COLS:
                                     df[col] = clean_numeric(df[col])
-                                # Parse dates with Chinese format support
-                                df["Date"] = df["Date"].apply(parse_chinese_date)
+                                # Parse dates with multiple format support
+                                df["Date"] = df["Date"].apply(parse_date)
                                 df = df.dropna(subset=["Date"])
                                 df = df[df["Spend"].notna()]
                                 df["Campaign"] = "Total"
