@@ -506,7 +506,8 @@ else:
                     for sheet_name in sheets["campaigns"]:
                         try:
                             ws = sh.worksheet(sheet_name)
-                            records = ws.get_all_records(expected_headers=[], numericise_ignore=["all"])
+                            # Get all records - let gspread handle numeric conversion automatically
+                            records = ws.get_all_records(expected_headers=[])
                             if not records:
                                 continue
                             df = pd.DataFrame(records)
@@ -538,7 +539,7 @@ else:
                     if sheets["daily"]:
                         try:
                             ws = sh.worksheet(sheets["daily"])
-                            records = ws.get_all_records(expected_headers=[], numericise_ignore=["all"])
+                            records = ws.get_all_records(expected_headers=[])
                             if records:
                                 df = pd.DataFrame(records)
                                 for col in STANDARD_COLS:
@@ -605,6 +606,15 @@ else:
                 temp_campaigns_df = pd.concat(all_campaigns, ignore_index=True) if all_campaigns else pd.DataFrame()
                 temp_daily_total_df = pd.concat(all_daily, ignore_index=True) if all_daily else pd.DataFrame()
                 temp_weekly_df = pd.concat(all_weekly, ignore_index=True) if all_weekly else pd.DataFrame()
+
+                # Debug: Show what regions were loaded
+                if not temp_campaigns_df.empty:
+                    regions_loaded = temp_campaigns_df['Region'].unique().tolist()
+                    st.sidebar.write(f"DEBUG: Regions loaded: {regions_loaded}")
+                    st.sidebar.write(f"DEBUG: Total rows: {len(temp_campaigns_df)}")
+                    # Show row counts per region
+                    region_counts = temp_campaigns_df.groupby('Region').size().to_dict()
+                    st.sidebar.write(f"DEBUG: Rows per region: {region_counts}")
 
                 st.session_state["gs_campaigns"] = temp_campaigns_df
                 st.session_state["gs_daily"] = temp_daily_total_df
