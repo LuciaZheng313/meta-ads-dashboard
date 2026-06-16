@@ -516,6 +516,13 @@ else:
                             df = pd.DataFrame(records)
                             st.sidebar.write(f"DEBUG: {sheet_name} - initial: {len(df)} rows")
 
+                            # Debug: Check raw Spend values for NA sheets
+                            if region == "NA" and 'Spend' in df.columns and len(df) > 0:
+                                spend_sample = df['Spend'].head(3).tolist()
+                                spend_types = [type(x).__name__ for x in df['Spend'].head(3)]
+                                st.sidebar.write(f"DEBUG: {sheet_name} - Spend raw values: {spend_sample}")
+                                st.sidebar.write(f"DEBUG: {sheet_name} - Spend types: {spend_types}")
+
                             _, label, _ = parse_tab_name(sheet_name)
                             # Numeric conversion
                             for col in STANDARD_COLS:
