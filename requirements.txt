@@ -4,3 +4,5 @@ plotly
 openpyxl
 python-calamine
 numpy
+gspread
+google-auth
