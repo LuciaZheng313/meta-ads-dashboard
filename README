@@ -1,3 +1,7 @@
 使用指南：
 1. 把excel格式的文件上传到对应位置（各地区or SQL），记得上传位置不同
 2. 可以对应filter筛选
+3. 目前仅支持NA, INDIA, EMEA看板
+EMEA: https://doc.weixin.qq.com/sheet/e3_AagAHga3AB0CNMNHIDOt4SbiqWJq4?scode=AJUA2wdHAAcNUUdc4t&tab=l7cbfe
+NA: https://doc.weixin.qq.com/sheet/e3_AVEAYwbqAJMCN3F46qsvPRn215x3A?scode=AJUA2wdHAAcHQPsKkSAVEAYwbqAJM&tab=2zd9j2
+INDIA: https://doc.weixin.qq.com/sheet/e3_AY8AyAaHAL4CNEBYQ5hKRTOuP8HvG?scode=AJUA2wdHAAc4xL6lFhAY8AyAaHAL4&tab=z429z2
