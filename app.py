@@ -471,13 +471,34 @@ if data_source == "Upload Excel file":
 
 else:
     st.sidebar.info(
-        "To connect Google Sheets, add your credentials to Streamlit Secrets "
-        "and paste the sheet URL below."
+        "Connect to the Meta Ads Google Sheet"
     )
 
-    sheet_url = st.sidebar.text_input("Google Sheet URL", key="gs_url_input")
+    # Embedded Google Sheet URL
+    GOOGLE_SHEET_URL = "https://docs.google.com/spreadsheets/d/1_a1Ddh1Pe09GpC4r1l_vMOqCSADKZRF4OBaGSS0w84o/"
 
-    if sheet_url and st.sidebar.button("Load from Google Sheets"):
+    # Two-step confirmation to avoid accidental clicks
+    should_load = False
+
+    if not st.session_state.get("gs_confirm_step", False):
+        # Step 1: Initial button
+        if st.sidebar.button("Connect to Google Sheets", type="primary"):
+            st.session_state["gs_confirm_step"] = True
+            st.rerun()
+    else:
+        # Step 2: Show confirmation buttons in sidebar
+        st.sidebar.warning("⚠️ Confirm loading data?")
+
+        if st.sidebar.button("✓ Yes, Load Data", type="primary", key="confirm_yes", use_container_width=True):
+            should_load = True
+            st.session_state["gs_confirm_step"] = False
+
+        if st.sidebar.button("✗ Cancel", key="confirm_no", use_container_width=True):
+            st.session_state["gs_confirm_step"] = False
+            st.rerun()
+
+    if should_load:
+        sheet_url = GOOGLE_SHEET_URL
         try:
             import gspread
             from google.oauth2.service_account import Credentials
