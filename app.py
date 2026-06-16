@@ -473,8 +473,10 @@ else:
                             ws = sh.worksheet(sheet_name)
                             records = ws.get_all_records(expected_headers=[], numericise_ignore=["all"])
                             if not records:
+                                st.sidebar.write(f"DEBUG: {sheet_name} - no records")
                                 continue
                             df = pd.DataFrame(records)
+                            st.sidebar.write(f"DEBUG: {sheet_name} - initial rows: {len(df)}")
                             _, label, _ = parse_tab_name(sheet_name)
                             # Numeric conversion
                             for col in STANDARD_COLS:
@@ -488,12 +490,16 @@ else:
                             mask_ctr = df["Impressions"].notna() & (df["Impressions"] != 0) & df["Link Clicks"].notna()
                             df.loc[mask_ctr, "CTR"] = df.loc[mask_ctr, "Link Clicks"] / df.loc[mask_ctr, "Impressions"]
                             df["Date"] = pd.to_datetime(df["Date"], errors="coerce")
+                            st.sidebar.write(f"DEBUG: {sheet_name} - after date parse: {len(df)}, valid dates: {df['Date'].notna().sum()}")
                             df = df.dropna(subset=["Date"])
+                            st.sidebar.write(f"DEBUG: {sheet_name} - after drop na dates: {len(df)}, valid spend: {df['Spend'].notna().sum()}")
                             df = df[df["Spend"].notna()]
+                            st.sidebar.write(f"DEBUG: {sheet_name} - final rows: {len(df)}")
                             df["Campaign"] = label
                             df["Region"] = region
                             df["RegionKey"] = normalize_region(region)
-                            all_campaigns.append(df.reset_index(drop=True))
+                            if not df.empty:
+                                all_campaigns.append(df.reset_index(drop=True))
                         except Exception as e:
                             st.warning(f"Could not load sheet '{sheet_name}': {e}")
 
