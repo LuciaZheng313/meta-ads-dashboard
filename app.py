@@ -590,8 +590,18 @@ else:
 # ---------------------------------------------------------------------------
 st.title("📊 Meta Ads 多地区效果看板")
 
-total_spend = fdf["Spend"].sum()
-total_leads = fdf["Leads"].sum()
+# 由于原始数据是累积的，需要计算每日增量
+# 方法：按 Region + Campaign 分组，计算每天的差值
+kpi_data = fdf.copy().sort_values(["Region", "Campaign", "Date"])
+kpi_data["Daily Spend"] = kpi_data.groupby(["Region", "Campaign"])["Spend"].diff().fillna(kpi_data["Spend"])
+kpi_data["Daily Leads"] = kpi_data.groupby(["Region", "Campaign"])["Leads"].diff().fillna(kpi_data["Leads"])
+
+# 优先使用 Daily New Leads 字段（如果有值）
+kpi_data["Daily Leads"] = kpi_data["Daily New Leads"].fillna(kpi_data["Daily Leads"])
+
+# 汇总实际的每日花费和线索数
+total_spend = kpi_data["Daily Spend"].sum()
+total_leads = kpi_data["Daily Leads"].sum()
 blended_cpl = total_spend / total_leads if total_leads else np.nan
 avg_ctr = fdf["CTR"].mean()
 avg_cvr = fdf["Lead CVR"].mean()
@@ -709,11 +719,12 @@ st.plotly_chart(fig_trend, use_container_width=True)
 # ---------------------------------------------------------------------------
 st.subheader("2️⃣ Campaign / Ad set 横向对比")
 
+# 使用每日增量数据进行汇总（kpi_data 已包含 Daily Spend 和 Daily Leads）
 agg = (
-    fdf.groupby(["Region", "RegionKey", "Campaign"])
+    kpi_data.groupby(["Region", "RegionKey", "Campaign"])
     .agg(
-        Spend=("Spend", "sum"),
-        Leads=("Leads", "sum"),
+        Spend=("Daily Spend", "sum"),
+        Leads=("Daily Leads", "sum"),
         Impressions=("Impressions", "sum"),
         Link_Clicks=("Link Clicks", "sum"),
         CTR=("CTR", "mean"),
@@ -907,9 +918,10 @@ else:
 # ---------------------------------------------------------------------------
 st.subheader("4️⃣ 地区对比")
 
+# 使用每日增量数据进行地区汇总
 region_agg = (
-    fdf.groupby("Region")
-    .agg(Spend=("Spend", "sum"), Leads=("Leads", "sum"))
+    kpi_data.groupby("Region")
+    .agg(Spend=("Daily Spend", "sum"), Leads=("Daily Leads", "sum"))
     .reset_index()
 )
 region_agg["Blended CPL"] = region_agg["Spend"] / region_agg["Leads"].replace(0, np.nan)
