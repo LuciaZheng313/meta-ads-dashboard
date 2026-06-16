@@ -525,11 +525,6 @@ else:
                             # Parse dates with multiple format support
                             df["Date"] = df["Date"].apply(parse_date)
                             df = df.dropna(subset=["Date"])
-
-                            # Debug: Check NA sheets
-                            if region == "NA" and not df.empty:
-                                st.sidebar.write(f"DEBUG NA: {sheet_name}, rows before Spend filter: {len(df)}, Spend notna: {df['Spend'].notna().sum()}")
-
                             df = df[df["Spend"].notna()]
                             df["Campaign"] = label
                             df["Region"] = region
