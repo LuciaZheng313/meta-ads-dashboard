@@ -65,9 +65,9 @@ st.markdown("""
         background-color: #5b7ed8 !important;
         border-color: #5b7ed8 !important;
     }
-    /* Radio button inner circle when checked - make it darker */
+    /* Radio button inner circle when checked - make it black */
     .stRadio > div[role="radiogroup"] > label[data-checked="true"] > div:first-child > div {
-        background-color: #1a1a1a !important;
+        background-color: #000000 !important;
     }
 </style>
 """, unsafe_allow_html=True)
