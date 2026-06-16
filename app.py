@@ -477,6 +477,12 @@ else:
                                 continue
                             df = pd.DataFrame(records)
                             st.sidebar.write(f"DEBUG: {sheet_name} - initial rows: {len(df)}")
+
+                            # Check date column sample
+                            if "Date" in df.columns and len(df) > 0:
+                                sample_dates = df["Date"].head(3).tolist()
+                                st.sidebar.write(f"DEBUG: {sheet_name} - Date samples: {sample_dates}")
+
                             _, label, _ = parse_tab_name(sheet_name)
                             # Numeric conversion
                             for col in STANDARD_COLS:
