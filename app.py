@@ -647,6 +647,7 @@ if trend_view_mode == "按区域汇总 (Region Total)":
         .agg({
             "Spend": "sum",
             "Leads": "sum",
+            "Daily New Leads": "sum",
             "Impressions": "sum",
             "Link Clicks": "sum",
             "CTR": "mean",
@@ -656,27 +657,43 @@ if trend_view_mode == "按区域汇总 (Region Total)":
         })
         .reset_index()
     )
-    # Calculate daily delta for Spend (since Excel shows cumulative)
+    # Calculate daily delta for Spend and Leads (since Excel shows cumulative)
     # For each Region, calculate the difference from previous day
     trend_data = trend_data.sort_values(["Region", "Date"])
     trend_data["Daily Spend"] = trend_data.groupby("Region")["Spend"].diff().fillna(trend_data["Spend"])
+    trend_data["Daily Leads"] = trend_data.groupby("Region")["Leads"].diff().fillna(trend_data["Leads"])
 
-    # Recalculate CPL based on aggregated Spend and Leads
-    trend_data["CPL"] = trend_data["Spend"] / trend_data["Leads"].replace(0, np.nan)
+    # 优先使用 Daily New Leads 字段（如果有值），否则使用计算的差值
+    trend_data["Daily Leads"] = trend_data["Daily New Leads"].fillna(trend_data["Daily Leads"])
+
+    # Recalculate CPL based on daily Spend and Leads
+    trend_data["CPL"] = trend_data["Daily Spend"] / trend_data["Daily Leads"].replace(0, np.nan)
     trend_data["Series"] = trend_data["Region"]
     title_suffix = "(各区域所有Campaign汇总)"
 else:
     # Show individual campaigns within each region
     trend_data = fdf.copy()
     trend_data = trend_data.sort_values(["Region", "Campaign", "Date"])
-    # Calculate daily delta for Spend for each Campaign
+    # Calculate daily delta for Spend and Leads for each Campaign
     trend_data["Daily Spend"] = trend_data.groupby(["Region", "Campaign"])["Spend"].diff().fillna(trend_data["Spend"])
+    trend_data["Daily Leads"] = trend_data.groupby(["Region", "Campaign"])["Leads"].diff().fillna(trend_data["Leads"])
+
+    # 优先使用 Daily New Leads 字段（如果有值），否则使用计算的差值
+    trend_data["Daily Leads"] = trend_data["Daily New Leads"].fillna(trend_data["Daily Leads"])
+
+    # Recalculate CPL based on daily data
+    trend_data["CPL"] = trend_data["Daily Spend"] / trend_data["Daily Leads"].replace(0, np.nan)
 
     trend_data["Series"] = trend_data["Region"] + " - " + trend_data["Campaign"]
     title_suffix = "(各区域Campaign明细)"
 
-# Use Daily Spend if user selects Spend metric
-display_metric = "Daily Spend" if trend_metric == "Spend" else trend_metric
+# Use Daily metrics for display
+if trend_metric == "Spend":
+    display_metric = "Daily Spend"
+elif trend_metric == "Leads":
+    display_metric = "Daily Leads"
+else:
+    display_metric = trend_metric
 
 fig_trend = px.line(
     trend_data.sort_values("Date"),
@@ -936,12 +953,40 @@ if not daily_total_df.empty:
         & (daily_total_df["Date"] >= pd.Timestamp(start_date))
         & (daily_total_df["Date"] <= pd.Timestamp(end_date))
     )
-    dt = daily_total_df[dt_mask]
+    dt = daily_total_df[dt_mask].copy()
+
+    # 计算每日差值（原始数据是从 campaign 开始的累积数据）
+    dt = dt.sort_values(["Region", "Date"])
+    dt["Daily Spend"] = dt.groupby("Region")["Spend"].diff().fillna(dt["Spend"])
+    dt["Daily Leads"] = dt.groupby("Region")["Leads"].diff().fillna(dt["Leads"])
+
+    # 基于每日数据重新计算 CPL
+    dt["Daily CPL"] = dt["Daily Spend"] / dt["Daily Leads"].replace(0, np.nan)
+
     fig_dt = px.line(
-        dt.sort_values("Date"), x="Date", y="Spend", color="Region",
-        title="每日总花费 (Daily Total)",
+        dt.sort_values("Date"), x="Date", y="Daily Spend", color="Region",
+        title="每日总花费 (Daily Total - 每日实际花费)",
+        markers=True,
     )
     st.plotly_chart(fig_dt, use_container_width=True)
+
+    # 可选：添加每日 Leads 和 CPL 趋势
+    col_dt_a, col_dt_b = st.columns(2)
+    with col_dt_a:
+        fig_dt_leads = px.line(
+            dt.sort_values("Date"), x="Date", y="Daily Leads", color="Region",
+            title="每日总线索 (Daily Total - 每日新增 Leads)",
+            markers=True,
+        )
+        st.plotly_chart(fig_dt_leads, use_container_width=True)
+
+    with col_dt_b:
+        fig_dt_cpl = px.line(
+            dt.sort_values("Date"), x="Date", y="Daily CPL", color="Region",
+            title="每日 CPL (Daily Total - 基于每日数据)",
+            markers=True,
+        )
+        st.plotly_chart(fig_dt_cpl, use_container_width=True)
 
 
 # ---------------------------------------------------------------------------
