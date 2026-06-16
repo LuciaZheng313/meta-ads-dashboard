@@ -564,37 +564,37 @@ else:
                         except Exception as e:
                             st.warning(f"Could not load weekly sheet '{sheets['weekly']}': {e}")
 
-                campaigns_df = pd.concat(all_campaigns, ignore_index=True) if all_campaigns else pd.DataFrame()
-                daily_total_df = pd.concat(all_daily, ignore_index=True) if all_daily else pd.DataFrame()
-                weekly_df = pd.concat(all_weekly, ignore_index=True) if all_weekly else pd.DataFrame()
+                temp_campaigns_df = pd.concat(all_campaigns, ignore_index=True) if all_campaigns else pd.DataFrame()
+                temp_daily_total_df = pd.concat(all_daily, ignore_index=True) if all_daily else pd.DataFrame()
+                temp_weekly_df = pd.concat(all_weekly, ignore_index=True) if all_weekly else pd.DataFrame()
 
-                st.sidebar.write(f"DEBUG: Loaded campaigns_df shape = {campaigns_df.shape}")
+                st.sidebar.write(f"DEBUG: Loaded campaigns_df shape = {temp_campaigns_df.shape}")
                 st.sidebar.write(f"DEBUG: all_campaigns count = {len(all_campaigns)}")
 
-                st.session_state["gs_campaigns"] = campaigns_df
-                st.session_state["gs_daily"] = daily_total_df
-                st.session_state["gs_weekly"] = weekly_df
+                st.session_state["gs_campaigns"] = temp_campaigns_df
+                st.session_state["gs_daily"] = temp_daily_total_df
+                st.session_state["gs_weekly"] = temp_weekly_df
                 st.session_state["gs_url"] = sheet_url
 
-            if campaigns_df.empty:
+            if st.session_state["gs_campaigns"].empty:
                 st.sidebar.warning("Connected to Google Sheets, but no campaign data was loaded. Check sheet names.")
             else:
-                st.sidebar.success(f"Connected to Google Sheets. Loaded {len(campaigns_df)} rows.")
+                st.sidebar.success(f"Connected to Google Sheets. Loaded {len(st.session_state['gs_campaigns'])} rows.")
         except Exception as e:
             st.sidebar.error(f"Connection failed: {e}")
 
-    # Restore from session state on every rerun (button is only True on click frame)
-    if "gs_campaigns" in st.session_state:
-        st.sidebar.write(f"DEBUG: gs_campaigns exists, empty={st.session_state['gs_campaigns'].empty}, shape={st.session_state['gs_campaigns'].shape}")
-        if not st.session_state["gs_campaigns"].empty:
-            campaigns_df = st.session_state["gs_campaigns"]
-            daily_total_df = st.session_state["gs_daily"]
-            weekly_df = st.session_state["gs_weekly"]
-            st.sidebar.success(f"✓ Data loaded from Google Sheets ({len(campaigns_df)} rows)")
-        else:
-            st.sidebar.warning("DEBUG: gs_campaigns is empty")
+# Restore from session state on every rerun (after both if/else blocks)
+if "gs_campaigns" in st.session_state:
+    st.sidebar.write(f"DEBUG: gs_campaigns exists, empty={st.session_state['gs_campaigns'].empty}, shape={st.session_state['gs_campaigns'].shape}")
+    if not st.session_state["gs_campaigns"].empty:
+        campaigns_df = st.session_state["gs_campaigns"]
+        daily_total_df = st.session_state["gs_daily"]
+        weekly_df = st.session_state["gs_weekly"]
+        st.sidebar.success(f"✓ Data loaded from Google Sheets ({len(campaigns_df)} rows)")
     else:
-        st.sidebar.info("DEBUG: gs_campaigns not in session_state")
+        st.sidebar.warning("DEBUG: gs_campaigns is empty")
+else:
+    st.sidebar.info("DEBUG: gs_campaigns not in session_state")
 
 
 
