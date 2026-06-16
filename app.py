@@ -591,6 +591,9 @@ else:
 st.title("📊 Meta Ads 多地区效果看板")
 
 total_spend = fdf["Spend"].sum()
+# Calculate number of unique days for average calculation
+num_days = fdf["Date"].nunique()
+avg_daily_spend = total_spend / num_days if num_days > 0 else np.nan
 total_leads = fdf["Leads"].sum()
 blended_cpl = total_spend / total_leads if total_leads else np.nan
 avg_ctr = fdf["CTR"].mean()
@@ -602,7 +605,7 @@ if not sales_fdf.empty:
     cost_per_sql = total_spend / total_sql if total_sql else np.nan
 
     c1, c2, c3, c4, c5, c6, c7 = st.columns(7)
-    c1.metric("总花费 Spend", f"${total_spend:,.0f}")
+    c1.metric("日均花费 Avg Daily Spend", f"${avg_daily_spend:,.0f}")
     c2.metric("MQL Leads", f"{total_leads:,.0f}")
     c3.metric("SQL", f"{total_sql:,.0f}")
     c4.metric("SQL / MQL", fmt_percent(sql_mql_cvr, 2))
@@ -611,7 +614,7 @@ if not sales_fdf.empty:
     c7.metric("平均 CTR", fmt_percent(avg_ctr, 2))
 else:
     c1, c2, c3, c4, c5 = st.columns(5)
-    c1.metric("总花费 Spend", f"${total_spend:,.0f}")
+    c1.metric("日均花费 Avg Daily Spend", f"${avg_daily_spend:,.0f}")
     c2.metric("总线索 Leads / MQL", f"{total_leads:,.0f}")
     c3.metric("综合 CPL", fmt_number(blended_cpl, 2, prefix="$"))
     c4.metric("平均 CTR", fmt_percent(avg_ctr, 2))
@@ -625,18 +628,52 @@ st.markdown("---")
 # ---------------------------------------------------------------------------
 st.subheader("1️⃣ 每日趋势 (按地区 + Campaign / Ad set)")
 
-trend_metric = st.selectbox(
-    "选择指标",
-    ["Spend", "Leads", "CPL", "CTR", "Lead CVR", "Frequency", "3-Day Avg CPL"],
-    key="trend_metric",
-)
+col_trend_metric, col_trend_view = st.columns([2, 1])
+with col_trend_metric:
+    trend_metric = st.selectbox(
+        "选择指标",
+        ["Spend", "Leads", "CPL", "CTR", "Lead CVR", "Frequency", "3-Day Avg CPL"],
+        key="trend_metric",
+    )
+with col_trend_view:
+    trend_view_mode = st.selectbox(
+        "查看模式",
+        ["按区域汇总 (Region Total)", "按区域内Campaign对比 (Campaign by Region)"],
+        key="trend_view_mode",
+    )
 
-fdf["Series"] = fdf["Region"] + " - " + fdf["Campaign"]
+# Prepare data based on view mode
+if trend_view_mode == "按区域汇总 (Region Total)":
+    # Aggregate all campaigns within each region by date
+    trend_data = (
+        fdf.groupby(["Date", "Region"])
+        .agg({
+            "Spend": "sum",
+            "Leads": "sum",
+            "Impressions": "sum",
+            "Link Clicks": "sum",
+            "CTR": "mean",
+            "Lead CVR": "mean",
+            "Frequency": "mean",
+            "3-Day Avg CPL": "mean",
+        })
+        .reset_index()
+    )
+    # Recalculate CPL based on aggregated Spend and Leads
+    trend_data["CPL"] = trend_data["Spend"] / trend_data["Leads"].replace(0, np.nan)
+    trend_data["Series"] = trend_data["Region"]
+    title_suffix = "(各区域所有Campaign汇总)"
+else:
+    # Show individual campaigns within each region
+    trend_data = fdf.copy()
+    trend_data["Series"] = trend_data["Region"] + " - " + trend_data["Campaign"]
+    title_suffix = "(各区域Campaign明细)"
+
 fig_trend = px.line(
-    fdf.sort_values("Date"),
+    trend_data.sort_values("Date"),
     x="Date", y=trend_metric, color="Series",
     markers=False,
-    title=f"{trend_metric} 每日趋势",
+    title=f"{trend_metric} 每日趋势 {title_suffix}",
 )
 st.plotly_chart(fig_trend, use_container_width=True)
 
