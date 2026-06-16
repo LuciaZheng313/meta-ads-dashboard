@@ -26,6 +26,28 @@ import streamlit as st
 
 st.set_page_config(page_title="Meta Ads Dashboard", layout="wide")
 
+# Custom CSS to change button color to #3a66ff
+st.markdown("""
+<style>
+    /* Primary buttons */
+    .stButton > button[kind="primary"],
+    .stDownloadButton > button[kind="primary"] {
+        background-color: #3a66ff !important;
+        border-color: #3a66ff !important;
+    }
+    .stButton > button[kind="primary"]:hover,
+    .stDownloadButton > button[kind="primary"]:hover {
+        background-color: #2952cc !important;
+        border-color: #2952cc !important;
+    }
+    .stButton > button[kind="primary"]:active,
+    .stDownloadButton > button[kind="primary"]:active {
+        background-color: #1e3d99 !important;
+        border-color: #1e3d99 !important;
+    }
+</style>
+""", unsafe_allow_html=True)
+
 # ---------------------------------------------------------------------------
 # Constants
 # ---------------------------------------------------------------------------
