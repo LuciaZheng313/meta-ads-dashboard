@@ -443,7 +443,10 @@ else:
         "and paste the sheet URL below."
     )
 
-    sheet_url = st.sidebar.text_input("Google Sheet URL")
+    sheet_url = st.sidebar.text_input("Google Sheet URL", key="gs_url_input")
+
+    st.sidebar.write(f"DEBUG: sheet_url = '{sheet_url}'")
+
     if sheet_url and st.sidebar.button("Load from Google Sheets"):
         try:
             import gspread
@@ -565,21 +568,33 @@ else:
                 daily_total_df = pd.concat(all_daily, ignore_index=True) if all_daily else pd.DataFrame()
                 weekly_df = pd.concat(all_weekly, ignore_index=True) if all_weekly else pd.DataFrame()
 
+                st.sidebar.write(f"DEBUG: Loaded campaigns_df shape = {campaigns_df.shape}")
+                st.sidebar.write(f"DEBUG: all_campaigns count = {len(all_campaigns)}")
+
                 st.session_state["gs_campaigns"] = campaigns_df
                 st.session_state["gs_daily"] = daily_total_df
                 st.session_state["gs_weekly"] = weekly_df
                 st.session_state["gs_url"] = sheet_url
 
-            st.sidebar.success("Connected to Google Sheets.")
+            if campaigns_df.empty:
+                st.sidebar.warning("Connected to Google Sheets, but no campaign data was loaded. Check sheet names.")
+            else:
+                st.sidebar.success(f"Connected to Google Sheets. Loaded {len(campaigns_df)} rows.")
         except Exception as e:
             st.sidebar.error(f"Connection failed: {e}")
 
     # Restore from session state on every rerun (button is only True on click frame)
-    if "gs_campaigns" in st.session_state and not st.session_state["gs_campaigns"].empty:
-        campaigns_df = st.session_state["gs_campaigns"]
-        daily_total_df = st.session_state["gs_daily"]
-        weekly_df = st.session_state["gs_weekly"]
-        st.sidebar.success("✓ Data loaded from Google Sheets")
+    if "gs_campaigns" in st.session_state:
+        st.sidebar.write(f"DEBUG: gs_campaigns exists, empty={st.session_state['gs_campaigns'].empty}, shape={st.session_state['gs_campaigns'].shape}")
+        if not st.session_state["gs_campaigns"].empty:
+            campaigns_df = st.session_state["gs_campaigns"]
+            daily_total_df = st.session_state["gs_daily"]
+            weekly_df = st.session_state["gs_weekly"]
+            st.sidebar.success(f"✓ Data loaded from Google Sheets ({len(campaigns_df)} rows)")
+        else:
+            st.sidebar.warning("DEBUG: gs_campaigns is empty")
+    else:
+        st.sidebar.info("DEBUG: gs_campaigns not in session_state")
 
 
 
@@ -593,6 +608,7 @@ uploaded_sql_files = st.sidebar.file_uploader(
     key="sql_files",
 )
 
+st.write(f"DEBUG: Before check - campaigns_df.empty = {campaigns_df.empty}, shape = {campaigns_df.shape}")
 if campaigns_df.empty:
     st.info("Upload the unified Meta Ads overview Excel file in the sidebar to get started.")
     st.stop()
